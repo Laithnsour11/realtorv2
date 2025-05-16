@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deal Flow - Realtor Database</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <link href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.7.0/mapbox-gl-geocoder.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/additional.css">
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header with search bar and add button -->
+        <header class="app-header">
+            <div class="logo">
+                <h1>Deal Flow</h1>
+                <span class="subtitle">Realtor Database</span>
+            </div>
+            <div class="search-container">
+                <div class="search-bar">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="search-input" placeholder="Search by city, county, or state...">
+                    <button id="search-button">Search</button>
+                </div>
+                <button id="add-realtor-btn" class="add-button">
+                    <i class="fas fa-plus"></i> Add Realtor
+                </button>
+            </div>
+        </header>
+
+        <!-- Main content area with list view and map -->
+        <main class="main-content">
+            <!-- List view sidebar -->
+            <aside class="list-view">
+                <div class="list-header">
+                    <h2>Realtors</h2>
+                    <div class="list-filter">
+                        <select id="sort-select">
+                            <option value="name">Sort by Name</option>
+                            <option value="deals">Sort by Deals</option>
+                            <option value="recent">Sort by Recently Added</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="realtor-list" id="realtor-list">
+                    <!-- Realtor list items will be populated here dynamically -->
+                    <div class="list-placeholder">
+                        <p>Search for realtors or browse the map</p>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Map container -->
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+        </main>
+
+        <!-- Add/Edit Realtor Modal -->
+        <div id="realtor-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modal-title">Add New Realtor</h2>
+                    <span class="close-modal">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <form id="realtor-form">
+                        <div class="form-group">
+                            <label for="realtor-name">Name*</label>
+                            <input type="text" id="realtor-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="realtor-phone">Phone*</label>
+                            <input type="tel" id="realtor-phone" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="realtor-email">Email*</label>
+                            <input type="email" id="realtor-email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="realtor-location">Service Area Location*</label>
+                            <input type="text" id="realtor-location" placeholder="City, County, or State" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="realtor-radius">Coverage Radius (miles)*</label>
+                            <input type="number" id="realtor-radius" min="1" max="500" value="25" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="realtor-zillow">Zillow Profile URL</label>
+                            <input type="url" id="realtor-zillow" placeholder="https://www.zillow.com/profile/...">
+                        </div>
+                        <div class="form-group">
+                            <label for="realtor-realtor">Realtor.com Profile URL</label>
+                            <input type="url" id="realtor-realtor" placeholder="https://www.realtor.com/realestateagents/...">
+                        </div>
+                        <div class="form-group">
+                            <label for="realtor-website">Personal Website URL</label>
+                            <input type="url" id="realtor-website" placeholder="https://...">
+                        </div>
+                        <div class="form-group">
+                            <label for="realtor-specialties">Specialties (comma separated)</label>
+                            <input type="text" id="realtor-specialties" placeholder="Residential, Commercial, Luxury, etc.">
+                        </div>
+                        <div class="form-group">
+                            <label for="realtor-deals">Number of Deals</label>
+                            <input type="number" id="realtor-deals" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="realtor-notes">Notes</label>
+                            <textarea id="realtor-notes" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="realtor-submitter">Submitted By*</label>
+                            <input type="text" id="realtor-submitter" required>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="submit-btn">Submit</button>
+                            <button type="button" class="cancel-btn">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Realtor Profile Modal -->
+        <div id="profile-modal" class="modal">
+            <div class="modal-content profile-content">
+                <div class="modal-header">
+                    <h2 id="profile-name">Realtor Profile</h2>
+                    <span class="close-modal">&times;</span>
+                </div>
+                <div class="modal-body profile-body">
+                    <div class="profile-info">
+                        <div class="profile-contact">
+                            <h3>Contact Information</h3>
+                            <p><i class="fas fa-phone"></i> <span id="profile-phone"></span></p>
+                            <p><i class="fas fa-envelope"></i> <span id="profile-email"></span></p>
+                            <div class="profile-links">
+                                <a id="profile-zillow-link" href="#" target="_blank"><i class="fas fa-home"></i> Zillow</a>
+                                <a id="profile-realtor-link" href="#" target="_blank"><i class="fas fa-building"></i> Realtor.com</a>
+                                <a id="profile-website-link" href="#" target="_blank"><i class="fas fa-globe"></i> Website</a>
+                            </div>
+                        </div>
+                        <div class="profile-details">
+                            <div class="profile-stats">
+                                <div class="stat">
+                                    <span class="stat-value" id="profile-deals">0</span>
+                                    <span class="stat-label">Deals</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-value" id="profile-radius">25</span>
+                                    <span class="stat-label">Mile Radius</span>
+                                </div>
+                            </div>
+                            <div class="profile-specialties">
+                                <h3>Specialties</h3>
+                                <div id="profile-specialties-list" class="tags-container">
+                                    <!-- Tags will be added dynamically -->
+                                </div>
+                            </div>
+                            <div class="profile-notes">
+                                <h3>Notes</h3>
+                                <p id="profile-notes-text"></p>
+                            </div>
+                            <div class="profile-meta">
+                                <p>Added by <span id="profile-submitter"></span></p>
+                                <p>Coverage: <span id="profile-location"></span></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="profile-actions">
+                        <button id="request-edit-btn" class="edit-btn"><i class="fas fa-edit"></i> Request Edit</button>
+                    </div>
+                    <div class="profile-comments">
+                        <h3>Comments</h3>
+                        <div id="comments-list">
+                            <!-- Comments will be added dynamically -->
+                        </div>
+                        <div class="add-comment">
+                            <textarea id="comment-input" placeholder="Add a comment..."></textarea>
+                            <button id="add-comment-btn">Add Comment</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Request Modal -->
+        <div id="edit-request-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Request Edit</h2>
+                    <span class="close-modal">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-request-form">
+                        <div class="form-group">
+                            <label for="edit-reason">Reason for Edit</label>
+                            <textarea id="edit-reason" rows="3" required placeholder="Please explain what information needs to be updated and why..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-submitter">Your Name</label>
+                            <input type="text" id="edit-submitter" required>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="submit-btn">Submit Request</button>
+                            <button type="button" class="cancel-btn">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.7.0/mapbox-gl-geocoder.min.js"></script>
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>
